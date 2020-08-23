@@ -16,13 +16,16 @@ from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Fo
 gaccount = gspread.service_account(filename = 'war pig-9478580af5de.json')
 gsheet = gaccount.open("Discord Tracking Sheet").sheet1
 
-API_KEY = '69e9cc72114cd2'
+API_KEY = 'API_KEY'
+ALLIANCE_ID = '7452'
+ALLIANCE_INITIALS = 'CoTL'
+ALLIANCE_NAME = 'Children of The Light'
 
 def load_wars():
 	'''
 	Gets list of wars in an alliance that are active
 	'''
-	war_json = requests.get(f'https://politicsandwar.com/api/wars/300&alliance_id=7452&key={API_KEY}').json()
+	war_json = requests.get(f'https://politicsandwar.com/api/wars/300&alliance_id={ALLIANCE_ID}&key={API_KEY}').json()
 	
 	#Makes sure not out of API keys
 	if war_json['success']:
@@ -36,7 +39,7 @@ def load_wars():
 			#Checks if war is still active
 			if war["status"] == "Active" or war["status"] == 'Defender Offered Peace' or war["status"] == 'Attacker Offered Peace' or last_save("warID") != None:
 				#Determines if member is attacker or defender
-				if war['attackerAA'] == 'Children of the Light':
+				if war['attackerAA'] == ALLIANCE_NAME:
 					records = calc_war(war['attackerID'], war['warID'], save)
 					#Checks if member is already in dictionary
 					if war['attackerID'] in member_records:
@@ -50,7 +53,7 @@ def load_wars():
 					if records[2][0]:
 						next_save.loc[len(next_save.index)] = [war['warID'], records[2][1]]
 				#If defender
-				elif war['defenderAA'] == 'Children of the Light':
+				elif war['defenderAA'] == ALLIANCE_NAME:
 					records = calc_war(war['defenderID'], war['warID'], save)
 					if war['defenderID'] in member_records:
 						#member_records[war['defenderID']] += records[0:2]
@@ -63,7 +66,7 @@ def load_wars():
 					if records[2][0]:
 						next_save.loc[len(next_save.index)] = [war['warID'], records[2][1]]
 		#Saves to excel to know last war attack that occured
-		next_save.to_excel('Last Active Wars.xlsx', index = False)
+		next_save.to_excel(f'Last Active Wars - {ALLIANCE_INITIALS}.xlsx', index = False)
 		update_stats(member_records)
 
 
@@ -241,7 +244,7 @@ def update_stats(member_records):
 		rss_prices[resource] = int(rss_json['avgprice'])
 
 	#Loads spreadsheet and member list from google spreadsheet
-	book = load_workbook('Stat Tracker.xlsx')
+	book = load_workbook(f'Stat Tracker - {ALLIANCE_INITIALS}.xlsx')
 	member_names = gsheet.col_values(1)
 	member_names.pop(0)
 	nation_id = gsheet.col_values(2)
@@ -385,7 +388,7 @@ def update_stats(member_records):
 			for j, val in enumerate(['all', 'gm', 'mon_des', 'loot', 'total']):
 				sheet.cell(row = 3+i, column = j+9).value = f'${df[val].sum()}'
 		plt.close('all')
-	book.save('Stat Tracker.xlsx')
+	book.save(f'Stat Tracker - {ALLIANCE_INITIALS}.xlsx')
 
 
 def calc_stats(damage, rss_prices):
@@ -412,10 +415,10 @@ def calc_stats(damage, rss_prices):
 	ship_cost = damage['ships'] * (50000+25*rss_prices['Steel'])
 	stats['Ships'] = f'{damage["ships"]} (${ship_cost})'
 
-	miss_cost = damage['miss'] * (150000+500*rss_prices['Gasoline']+250*rss_prices['Uranium']+750*rss_prices['Aluminum'])
+	miss_cost = damage['miss'] * (150000+75*rss_prices['Gasoline']+75*rss_prices['Munitions']+100*rss_prices['Aluminum'])
 	stats['Missiles'] = f'{damage["miss"]} (${miss_cost})'
 
-	nuke_cost = damage['nuke'] * (150000+75*rss_prices['Gasoline']+75*rss_prices['Munitions']+100*rss_prices['Aluminum'])
+	nuke_cost = damage['nuke'] * (1750000+500*rss_prices['Gasoline']+250*rss_prices['Uranium']+750*rss_prices['Aluminum'])
 	stats['Nukes'] = f'{damage["nuke"]} (${nuke_cost})'
 
 	all_cost = soldier_cost + tank_cost + plane_cost + ship_cost + miss_cost + nuke_cost
@@ -465,9 +468,9 @@ def create_df(sheet, x, start_row):
 
 
 if __name__ == '__main__':
-	#last_war_save = pd.read_excel('Last Active Wars.xlsx')
-	#load_wars()
-	wars = [736361,736346,736342,736272]
+	last_war_save = pd.read_excel(f'Last Active Wars - {ALLIANCE_INITIALS}.xlsx')
+	load_wars()
+	'''wars = [736361,736346,736342,736272]
 	member_records = {}
 	records = calc_war(48730, 736367)
 	member_records['EvilPiggyFooFoo'] = records[0:2]
@@ -485,4 +488,4 @@ if __name__ == '__main__':
 	for resource in ['Coal', 'Oil', 'Uranium', 'Iron', 'Bauxite', 'Lead', 'Gasoline', 'Munitions', 'Steel', 'Aluminum', 'Food']:
 		rss_json = war_json = requests.get(f'https://politicsandwar.com/api/tradeprice/resource={resource.lower()}&key={API_KEY}').json()
 		rss_prices[resource] = int(rss_json['avgprice'])
-	print(calc_stats(member_records['EvilPiggyFooFoo'][1], rss_prices))
+	print(calc_stats(member_records['EvilPiggyFooFoo'][1], rss_prices))'''
