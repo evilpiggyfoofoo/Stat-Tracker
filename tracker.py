@@ -1,3 +1,4 @@
+
 import pandas as pd
 import numpy as np
 import seaborn as sns
@@ -15,10 +16,7 @@ from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Fo
 gaccount = gspread.service_account(filename = 'war pig-9478580af5de.json')
 gsheet = gaccount.open("Discord Tracking Sheet").sheet1
 
-API_KEY = 'API KEY'
-
-
-
+API_KEY = '69e9cc72114cd2'
 
 def load_wars():
 	'''
@@ -239,7 +237,7 @@ def update_stats(member_records):
 	rss_prices = {}
 	#Gets current rss prices
 	for resource in ['Coal', 'Oil', 'Uranium', 'Iron', 'Bauxite', 'Lead', 'Gasoline', 'Munitions', 'Steel', 'Aluminum', 'Food']:
-		rss_json = war_json = requests.get(f'https://politicsandwar.com/api/tradeprice/resource={resource}&key={API_KEY}').json()
+		rss_json = war_json = requests.get(f'https://politicsandwar.com/api/tradeprice/resource={resource.lower()}&key={API_KEY}').json()
 		rss_prices[resource] = int(rss_json['avgprice'])
 
 	#Loads spreadsheet and member list from google spreadsheet
@@ -329,7 +327,7 @@ def update_stats(member_records):
 				d_cost = d_cost.replace(')', '')
 				t_units, t_cost = taken.split(' ($')
 				t_cost = t_cost.replace(')', '')
-				sheet.cell(row = start_row, column = index).value = f'{float(d_units) - float(t_units)} (${float(d_cost) - float(t_cost)})'
+				sheet.cell(row = start_row, column = index).value = f'{round(float(d_units) - float(t_units),2)} (${round(float(d_cost) - float(t_cost),2)})'
 			else:
 				taken = float(taken.replace('$', ''))
 				dealt = float(dealt.replace('$', ''))
@@ -421,7 +419,7 @@ def calc_stats(damage, rss_prices):
 	stats['Nukes'] = f'{damage["nuke"]} (${nuke_cost})'
 
 	all_cost = soldier_cost + tank_cost + plane_cost + ship_cost + miss_cost + nuke_cost
-	stats['All Units'] = f'${all_cost}'
+	stats['All Units'] = f'${round(all_cost, 2)}'
 
 	stats['Money'] = f'${round(damage["mon_destroyed"], 2)}'
 
@@ -467,5 +465,24 @@ def create_df(sheet, x, start_row):
 
 
 if __name__ == '__main__':
-	last_war_save = pd.read_excel('Last Active Wars.xlsx')
-	load_wars()
+	#last_war_save = pd.read_excel('Last Active Wars.xlsx')
+	#load_wars()
+	wars = [736361,736346,736342,736272]
+	member_records = {}
+	records = calc_war(48730, 736367)
+	member_records['EvilPiggyFooFoo'] = records[0:2]
+	for war in wars:
+		records = calc_war(48730, war)
+		for key in member_records['EvilPiggyFooFoo'][0]:
+			member_records['EvilPiggyFooFoo'][0][key] += records[0][key]
+		for key in member_records['EvilPiggyFooFoo'][1]:
+			member_records['EvilPiggyFooFoo'][1][key] += records[1][key]
+
+	print(member_records)
+
+	rss_prices = {}
+	#Gets current rss prices
+	for resource in ['Coal', 'Oil', 'Uranium', 'Iron', 'Bauxite', 'Lead', 'Gasoline', 'Munitions', 'Steel', 'Aluminum', 'Food']:
+		rss_json = war_json = requests.get(f'https://politicsandwar.com/api/tradeprice/resource={resource.lower()}&key={API_KEY}').json()
+		rss_prices[resource] = int(rss_json['avgprice'])
+	print(calc_stats(member_records['EvilPiggyFooFoo'][1], rss_prices))
