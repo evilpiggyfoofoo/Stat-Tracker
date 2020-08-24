@@ -8,18 +8,20 @@ import json
 import re
 import gspread
 import openpyxl
+import math
 from openpyxl import load_workbook
 from datetime import datetime
 from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Font
+from bs4 import BeautifulSoup
 
 #gets the google sheet with member nation names and discord ID (not ness with a proper backend)
 gaccount = gspread.service_account(filename = 'war pig-9478580af5de.json')
 gsheet = gaccount.open("Discord Tracking Sheet").sheet1
 
 API_KEY = 'API_KEY'
-ALLIANCE_ID = '7452'
-ALLIANCE_INITIALS = 'CoTL'
-ALLIANCE_NAME = 'Children of The Light'
+ALLIANCE_ID = 'xxxx'
+ALLIANCE_INITIALS = 'CTO'
+ALLIANCE_NAME = 'Carthago'
 
 def load_wars():
 	'''
@@ -33,20 +35,30 @@ def load_wars():
 		member_records = {}
 		#Dataframe to know where the war left off, so it doesn't double count 
 		next_save = pd.DataFrame(columns = ['War ID', 'Last War Attack ID'])
-		#Grabs each ear
+		#Grabs each war
 		for war in war_list:
 			save = last_save(war['warID'])
 			#Checks if war is still active
-			if war["status"] == "Active" or war["status"] == 'Defender Offered Peace' or war["status"] == 'Attacker Offered Peace' or last_save("warID") != None:
+			
+			if war["status"] == "Active" or war["status"] == 'Defender Offered Peace' or war["status"] == 'Attacker Offered Peace' or (save is not None):
+				print(war)
 				#Determines if member is attacker or defender
 				if war['attackerAA'] == ALLIANCE_NAME:
 					records = calc_war(war['attackerID'], war['warID'], save)
 					#Checks if member is already in dictionary
 					if war['attackerID'] in member_records:
 						for key in member_records[war['attackerID']][0]:
-							member_records[war['attackerID']][0][key] += records[0][key]
+							if not key == 'beige_loot':
+								member_records[war['attackerID']][0][key] += records[0][key]
+							else:
+								member_records[war['attackerID']][0][key] = [sum(x) for x in zip(member_records[war['attackerID']][0][key], records[0][key])]
+
 						for key in member_records[war['attackerID']][1]:
-							member_records[war['attackerID']][1][key] += records[1][key]
+							if not key == 'beige_loot':
+								member_records[war['attackerID']][1][key] += records[1][key]
+							else:
+								member_records[war['attackerID']][1][key] = [sum(x) for x in zip(member_records[war['attackerID']][1][key], records[1][key])]
+
 					#Creates member if not in dictionary
 					else:
 						member_records[war['attackerID']] = records[0:2]
@@ -58,15 +70,24 @@ def load_wars():
 					if war['defenderID'] in member_records:
 						#member_records[war['defenderID']] += records[0:2]
 						for key in member_records[war['defenderID']][0]:
-							member_records[war['defenderID']][0][key] += records[0][key]
+							if not key == 'beige_loot':
+								member_records[war['defenderID']][0][key] += records[0][key]
+							else:
+								member_records[war['defenderID']][0][key] = [sum(x) for x in zip(member_records[war['defenderID']][0][key], records[0][key])]
+
 						for key in member_records[war['defenderID']][1]:
-							member_records[war['defenderID']][1][key] += records[1][key]
+							if not key == 'beige_loot':
+								member_records[war['defenderID']][1][key] += records[1][key]
+							else:
+								member_records[war['defenderID']][1][key] = [sum(x) for x in zip(member_records[war['defenderID']][1][key], records[1][key])]
+
 					else:
 						member_records[war['defenderID']] = records[0:2]
 					if records[2][0]:
 						next_save.loc[len(next_save.index)] = [war['warID'], records[2][1]]
 		#Saves to excel to know last war attack that occured
 		next_save.to_excel(f'Last Active Wars - {ALLIANCE_INITIALS}.xlsx', index = False)
+		print(member_records)
 		update_stats(member_records)
 
 
@@ -90,11 +111,11 @@ def calc_war(member_id, war_id, min_attack_id = None):
 	if calc_json['success']:
 		member_dmg_dealt = {"infra_destroyed": 0, 'money_looted': 0, "infra_destroyed_value": 0, "gas": 0, "mun": 0,
 		"sold": 0, "tanks": 0, "air": 0, "ships": 0, 'mon_destroyed': 0, 'nuke': 0, 'miss': 0, 'beige_loot': [
-		0,0,0,0,0,0,0,0,0,0,0]}
+		0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]}
 
 		member_dmg_taken = {"infra_destroyed": 0, 'money_looted': 0, "infra_destroyed_value": 0, "gas": 0, "mun": 0,
 		"sold": 0, "tanks": 0, "air": 0, "ships": 0, 'mon_destroyed': 0, 'nuke': 0, 'miss': 0, 'beige_loot': [
-		0,0,0,0,0,0,0,0,0,0,0]}
+		0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]}
 
 		active_war = [True, None]
 
@@ -154,9 +175,16 @@ def calc_war(member_id, war_id, min_attack_id = None):
 					while '  ' in loot:
 						loot = loot.replace('  ', ' ')
 					loot = loot.split(' ')
-					for index, rss in enumerate(loot[1:12]):
-						member_dmg_dealt['beige_loot'][index] += float(rss)
-
+					member_dmg_dealt['beige_loot'] = [sum(x) for x in zip(member_dmg_dealt['beige_loot'], map(lambda x: float(x),loot[1:12]))]
+					city = BeautifulSoup(requests.get(f'https://politicsandwar.com/nation/id={war["defender_nation_id"]}').text, 'html.parser').find_all('th', {'colspan': '2'})[8].text
+					city = int(city.split(' ')[1])
+					avg_destroyed = float(war['infra_destroyed'])/city
+					avg_start = avg_destroyed/0.042
+					avg_end = avg_start - avg_destroyed
+					damage_per_city = 0
+					for i, value in enumerate(range(math.ceil(avg_destroyed/100))):
+						damage_per_city += (300+((avg_end+i*100-10)**2.2)/710) * min(100, avg_destroyed - i*100)
+					member_dmg_dealt['infra_destroyed_value'] = damage_per_city*city
 				#If it is victory, grab looted from alliance
 				elif war['attack_type'] == 'a_loot':
 					loot = war['note'].split('alliance bank, taking: $')[1]
@@ -164,8 +192,7 @@ def calc_war(member_id, war_id, min_attack_id = None):
 					while '  ' in loot:
 						loot = loot.replace('  ', ' ')
 					loot = loot.split(' ')
-					for index, rss in enumerate(loot[1:12]):
-						member_dmg_dealt['beige_loot'][index] += float(rss)
+					member_dmg_dealt['beige_loot'] = [sum(x) for x in zip(member_dmg_dealt['beige_loot'], map(lambda x: float(x),loot[1:12]))]
 					active_war[0] = False
 
 			#If the member is not the attacker
@@ -206,8 +233,17 @@ def calc_war(member_id, war_id, min_attack_id = None):
 					while '  ' in loot:
 						loot = loot.replace('  ', ' ')
 					loot = loot.split(' ')
-					for index, rss in enumerate(loot[1:12]):
-						member_dmg_taken['beige_loot'][index] += float(rss)
+					member_dmg_taken['beige_loot'] = [sum(x) for x in zip(member_dmg_taken['beige_loot'], map(lambda x: float(x),loot[1:12]))]
+					city = BeautifulSoup(requests.get(f'https://politicsandwar.com/nation/id={war["attacker_nation_id"]}').text, 'html.parser').find_all('th', {'colspan': '2'})[8].text
+					city = int(city.split(' ')[1])
+					avg_destroyed = float(war['infra_destroyed'])/city
+					avg_start = avg_destroyed/0.042
+					avg_end = avg_start - avg_destroyed
+					damage_per_city = 0
+					for i, value in enumerate(range(math.ceil(avg_destroyed/100))):
+						damage_per_city += (300+((avg_end+i*100-10)**2.2)/710) * min(100, avg_destroyed - i*100)
+					member_dmg_taken['infra_destroyed_value'] = damage_per_city*city
+					active_war[0] = False
 
 				elif war['attack_type'] == 'a_loot':
 					loot = war['note'].split('alliance bank, taking: $')[1]
@@ -215,16 +251,13 @@ def calc_war(member_id, war_id, min_attack_id = None):
 					while '  ' in loot:
 						loot = loot.replace('  ', ' ')
 					loot = loot.split(' ')
-					for index, rss in enumerate(loot[1:12]):
-						member_dmg_taken['beige_loot'][index] += float(rss)
+					member_dmg_taken['beige_loot'] = [sum(x) for x in zip(member_dmg_taken['beige_loot'], map(lambda x: float(x),loot[1:12]))]
 					active_war[0] = False
 
 		return [member_dmg_dealt, member_dmg_taken, active_war]
 
 def last_save(war_id):
 	try:
-		print(war_id)
-		print(last_war_save[last_war_save['War ID'] == war_id]['Last War Attack ID'].item())
 		return last_war_save[last_war_save['War ID'] == war_id]['Last War Attack ID'].item()
 	except:
 		return None
@@ -348,7 +381,6 @@ def update_stats(member_records):
 		#Creates new graphs
 		total_dealt = df_dealt[['cinfra', 'csold','ctanks', 'cair', 'cships', 'cmiss', 'cnuke','gm', 'mon_des', 'loot']].sum()
 		pie_graph = plt.figure(figsize = (5,2.9))
-		print(len(total_dealt))
 		plt.pie(total_dealt)
 		pie_graph.legend(['Infrastructure','Soldiers','Tanks','Planes','Ships','Missiles','Nukes','Gas and Munition','Money','Looted'], title = 'Damage Dealt')
 		pie_graph.savefig(f"Graphs/Pie Dealt {member}.png")
@@ -358,7 +390,6 @@ def update_stats(member_records):
 
 		total_taken = df_taken[['cinfra', 'csold','ctanks', 'cair', 'cships', 'cmiss', 'cnuke','gm', 'mon_des', 'loot']].sum()
 		pie_graph = plt.figure(figsize = (5,2.9))
-		print(len(total_taken))
 		plt.pie(total_taken)
 		pie_graph.legend(['Infrastructure','Soldiers','Tanks','Planes','Ships','Missiles','Nukes','Gas and Munition','Money','Looted'], title = 'Damage Taken')
 		pie_graph.savefig(f"Graphs/Pie Taken {member}.png")
@@ -477,9 +508,15 @@ if __name__ == '__main__':
 	for war in wars:
 		records = calc_war(48730, war)
 		for key in member_records['EvilPiggyFooFoo'][0]:
-			member_records['EvilPiggyFooFoo'][0][key] += records[0][key]
+			if not key == 'beige_loot':
+				member_records['EvilPiggyFooFoo'][0][key] += records[0][key]
+			else:
+				member_records['EvilPiggyFooFoo'][0][key] = [sum(x) for x in zip(member_records['EvilPiggyFooFoo'][0][key], records[0][key])]
 		for key in member_records['EvilPiggyFooFoo'][1]:
-			member_records['EvilPiggyFooFoo'][1][key] += records[1][key]
+			if not key == 'beige_loot':
+				member_records['EvilPiggyFooFoo'][1][key] += records[1][key]
+			else:
+				member_records['EvilPiggyFooFoo'][1][key] = [sum(x) for x in zip(member_records['EvilPiggyFooFoo'][1][key], records[1][key])]
 
 	print(member_records)
 
@@ -488,4 +525,5 @@ if __name__ == '__main__':
 	for resource in ['Coal', 'Oil', 'Uranium', 'Iron', 'Bauxite', 'Lead', 'Gasoline', 'Munitions', 'Steel', 'Aluminum', 'Food']:
 		rss_json = war_json = requests.get(f'https://politicsandwar.com/api/tradeprice/resource={resource.lower()}&key={API_KEY}').json()
 		rss_prices[resource] = int(rss_json['avgprice'])
+	print(calc_stats(member_records['EvilPiggyFooFoo'][0], rss_prices))
 	print(calc_stats(member_records['EvilPiggyFooFoo'][1], rss_prices))'''
