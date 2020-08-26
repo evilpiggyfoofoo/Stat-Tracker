@@ -14,10 +14,6 @@ from datetime import datetime
 from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Font
 from bs4 import BeautifulSoup
 
-#gets the google sheet with member nation names and discord ID (not ness with a proper backend)
-gaccount = gspread.service_account(filename = 'war pig-9478580af5de.json')
-gsheet = gaccount.open("Discord Tracking Sheet").sheet1
-
 API_KEY = 'API_KEY'
 ALLIANCE_ID = 'xxxx'
 ALLIANCE_INITIALS = 'CTO'
